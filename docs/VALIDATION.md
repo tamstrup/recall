@@ -37,7 +37,7 @@ The MP3 decoder fixture is one second of silence from [anars/blank-audio](https:
 
 ## Native UI checks
 
-Launched the packaged application and captured its actual SwiftUI/AppKit content view with an isolated preview library. Inspected empty Inbox, recording/transcript, light and dark appearance, and Notes at the minimum supported window size. Images are in `docs/screenshots/`; sample conversation text is synthetic. Captures exclude the system titlebar and toolbar.
+Launched the packaged application and captured its actual SwiftUI/AppKit content view with an isolated preview library. Inspected empty Inbox, recording/transcript, light and dark appearance, and Notes at the minimum supported window size. Images are in `docs/screenshots/`; sample conversation text is synthetic. The Inbox and dark recording captures include the native titlebar and toolbar; earlier recording and Notes captures show only the content view.
 
 The drop provider and import pipeline are automated and verified. An actual mouse drag from Finder has not been driven by automation; that physical gesture and audio quality on the user's own recordings remain the short acceptance check in `TODO_USER.md`.
 
@@ -50,3 +50,7 @@ This is a functional MVP, not a benchmark of diarization accuracy or a guarantee
 ## Approved icon update
 
 Replaced the original teal mark with the user-approved purple voice-to-text artwork. Verified all ten catalog/iconset PNG entries have their required pixel dimensions and RGBA transparency, and that the saved original matches the approved generated image byte for byte. Inspected the 128 px icon and refreshed the native Inbox screenshot. Rebuilt debug and release bundles and reran the 12 core tests successfully; the three opt-in decoder/model tests were skipped for this asset-only update (their earlier passing evidence is above).
+
+## Header alignment fix (0.1.1)
+
+Reproduced the titlebar separator extending into the sidebar: the native titlebar background began at x=278 while the detail column began at x=281. Hid the automatic toolbar material so each split column supplies its own aligned background, and configured the public `NSWindow.titlebarSeparatorStyle` to `.none` to remove the overhanging line. The native title and toolbar controls remain, without fixed padding or private-view changes. The preview helper now captures the complete window so titlebar regressions remain visible. Inspected the empty Inbox in light mode and a recording in dark mode at the minimum window size. Debug/release builds and local signing verification passed. The transfer ZIP was refreshed for this patch.

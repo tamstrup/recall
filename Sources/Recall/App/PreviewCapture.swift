@@ -8,6 +8,8 @@ import AVFoundation
     static var output: String? { ProcessInfo.processInfo.environment["RECALL_CAPTURE_UI"] }
     static var sample: Bool { ProcessInfo.processInfo.environment["RECALL_SAMPLE_UI"] == "1" }
     static func makeStore() throws -> RecallStore {
+        NSApplication.shared.appearance = NSAppearance(named:
+            ProcessInfo.processInfo.environment["RECALL_DARK_UI"] == "1" ? .darkAqua : .aqua)
         let persistence = try RecordingPersistence()
         let root = FileManager.default.temporaryDirectory.appendingPathComponent("Recall-UI-Preview")
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
@@ -42,7 +44,8 @@ import AVFoundation
     static func capture() async {
         guard let output else { return }
         try? await Task.sleep(for: .seconds(2))
-        guard let window = NSApplication.shared.windows.first(where: { $0.isVisible }), let view = window.contentView else { return }
+        guard let window = NSApplication.shared.windows.first(where: { $0.isVisible }),
+              let view = window.contentView?.superview else { return }
         if ProcessInfo.processInfo.environment["RECALL_SMALL_UI"] == "1" {
             window.setContentSize(NSSize(width: 800, height: 540))
         }
@@ -52,7 +55,9 @@ import AVFoundation
         try? await Task.sleep(for: .milliseconds(500))
         view.layoutSubtreeIfNeeded()
         guard let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
-        view.cacheDisplay(in: view.bounds, to: rep)
+        view.effectiveAppearance.performAsCurrentDrawingAppearance {
+            view.cacheDisplay(in: view.bounds, to: rep)
+        }
         do { try rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: output)) }
         catch { print("Snapshot failed: \(error)") }
         NSApplication.shared.terminate(nil)

@@ -64,6 +64,9 @@ struct InboxView: View {
                     .navigationTitle("Recall")
             }
         }
+        // Let each split column's background extend through the titlebar. The
+        // system toolbar material otherwise overhangs the sidebar divider.
+        .toolbarBackground(.hidden, for: .windowToolbar)
         .overlay {
             if dropTargeted {
                 ZStack {

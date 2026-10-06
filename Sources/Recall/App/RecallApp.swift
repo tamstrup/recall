@@ -36,6 +36,7 @@ import AppKit
         Window("Recall", id: "inbox") {
             if let store {
                 InboxView().environment(store)
+                    .background(WindowChrome().allowsHitTesting(false))
                     .task {
                         store.recoverQueue()
                         #if DEBUG

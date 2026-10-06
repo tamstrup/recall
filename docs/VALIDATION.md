@@ -84,3 +84,9 @@ Added **Transcribe Again…** for repairing existing recordings without duplicat
 All 23 regular tests and three opt-in integration tests passed; the unrelated Apple summary test was skipped. Coverage includes original-file preservation, SQLite deletion, deleting a running recording while its engine returns late, queue continuation, failed/successful retranscription, old library decoding, zero-duration words, short same-speaker gaps, unknown speech, and paragraph boundaries.
 
 Inspected the title actions control in a native minimum-size window (`docs/screenshots/recording-actions.png`). Built release 0.1.4 (build 5), verified the ARM64 binary and local code signature, and validated `build/Recall-0.1.4-macOS-arm64.zip`. The unversioned ZIP was refreshed to this release.
+
+## Supplied icon package (0.1.5)
+
+Replaced the waveform icon with the user's `Recall-AppIcon-macOS.zip` assets: lilac lips on a dark rounded square. Copied the catalog, iconset, master PNG, ICNS, original artwork, and supplied prompt without regenerating the images. Verified all package SHA-256 checksums, all ten PNG dimensions and alpha channels, matching catalog/iconset bytes, and all ten embedded ICNS PNGs against the supplied iconset.
+
+Built debug and release 0.1.5 (build 6). Inspected the icon in an isolated native Inbox capture and refreshed `docs/screenshots/inbox.png`. Verified the packaged ICNS matches the supplied asset exactly, the local app signature is valid, and the versioned transfer ZIP passes its integrity check. No processing code changed, so the speech tests were not rerun.

@@ -68,4 +68,4 @@ This is a locally signed development app, not a notarized distribution. No live 
 
 ## Icon and UI previews
 
-The approved purple voice-to-text icon uses a shaded waveform flowing into transcript lines. Its original artwork and image-generation prompt are saved in `Assets/IconSource/`. `Scripts/generate-icon.swift` resamples that artwork into a complete macOS asset catalog, iconset, 1024 px master, and `.icns` (using `iconutil`). The Inbox uses the same bundled icon. See `docs/ICON.md` for regeneration instructions. Screenshots under `docs/screenshots/` are native SwiftUI captures using isolated synthetic sample data.
+The current user-supplied icon shows sculpted lilac lips on a dark rounded square. Its original artwork and supplied generation prompt are saved in `Assets/IconSource/`. The complete macOS asset catalog, iconset, 1024 px master, and `.icns` are copied directly from the supplied package. The Inbox uses the same bundled icon. See `docs/ICON.md` for provenance and optional regeneration instructions. Screenshots under `docs/screenshots/` are native SwiftUI captures using isolated synthetic sample data.

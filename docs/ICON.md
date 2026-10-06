@@ -1,21 +1,21 @@
 # Recall icon
 
-The approved **voice into text** mark combines rounded waveform bars with three transcript lines. A violet-to-plum gradient and softly raised pale lilac forms give it depth while keeping a clear silhouette. It replaces the original flat teal conversation-trace direction.
+The current icon is the user-supplied **Recall-AppIcon-macOS.zip** design: sculpted lilac lips with a lighter lower lip on a dark rounded square (candidate 3, revision 2). It replaces the earlier waveform-and-transcript icon.
 
 ## Source and assets
 
-- `Assets/IconSource/Recall.png`: original approved 1254 × 1254 artwork, generated with the built-in image-generation tool, with transparency preserved.
-- `Assets/IconSource/prompt.txt`: exact generation prompt and provenance.
-- `Assets/Recall-1024.png`: resampled 1024 px master.
+- `Assets/IconSource/Recall.png`: supplied original 1254 × 1254 artwork, with transparency preserved.
+- `Assets/IconSource/prompt.txt`: generation prompt supplied in the package.
+- `Assets/Recall-1024.png`: supplied 1024 px master.
 - `Assets/Recall.iconset/`: all ten macOS icon entries, 16–1024 pixels.
 - `Assets/Assets.xcassets/AppIcon.appiconset/`: matching Xcode asset catalog.
 - `Assets/Recall.icns`: packaged application icon, also used in the empty Inbox.
 
-The source is raster artwork. The asset script preserves the approved design, alpha channel, and full composition, using high-quality resampling into sRGB. It does not invoke image generation or need credentials. The original design remains available in Git history.
+The supplied catalog, iconset, master, and `.icns` were copied unchanged. All package checksums, PNG dimensions and alpha channels were verified, and all ten embedded ICNS images matched the supplied PNGs. Earlier designs remain available in Git history.
 
 ## Regenerate
 
-Run from the repository root:
+The package already contains production assets; an ordinary app build uses them directly. If new raster exports are needed, run from the repository root (this resamples the source and may not reproduce the package's exact export bytes):
 
 ```sh
 swift Scripts/generate-icon.swift Assets

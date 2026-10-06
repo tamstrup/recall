@@ -6,6 +6,7 @@ struct InboxView: View {
     @Environment(RecallStore.self) private var store
     private var recordings: [Recording] { store.recordings }
     @State private var dropTargeted = false
+    @State private var recordingToDelete: Recording?
 
     var body: some View {
         @Bindable var store = store
@@ -22,6 +23,9 @@ struct InboxView: View {
                     List(selection: $store.selectedID) {
                         ForEach(recordings) { recording in
                             RecordingRow(recording: recording).tag(recording.id)
+                                .contextMenu {
+                                    Button("Delete Recording…", role: .destructive) { recordingToDelete = recording }
+                                }
                         }
                     }.listStyle(.sidebar)
                 }
@@ -85,6 +89,13 @@ struct InboxView: View {
                 catch { store.alertMessage = error.localizedDescription }
             }
             return true
+        }
+        .confirmationDialog("Delete this recording?", isPresented: Binding(
+            get: { recordingToDelete != nil }, set: { if !$0 { recordingToDelete = nil } }
+        ), titleVisibility: .visible, presenting: recordingToDelete) { recording in
+            Button("Delete Recording", role: .destructive) { Task { await store.delete(recording) } }
+        } message: { _ in
+            Text("This deletes Recall’s copy of the audio, transcript, and notes. Your original file is unchanged.")
         }
         .alert("Recall couldn’t finish that", isPresented: Binding(
             get: { store.alertMessage != nil }, set: { if !$0 { store.alertMessage = nil } }

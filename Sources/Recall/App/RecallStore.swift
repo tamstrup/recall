@@ -12,6 +12,7 @@ import UniformTypeIdentifiers
     private let summarizer: any SummaryEngine
     private let logger = Logger(subsystem: "app.recall.mac", category: "Processing")
     private var queueTask: Task<Void, Never>?
+    private var processingID: UUID?
     private(set) var importingCount = 0
     private(set) var summarizingIDs: Set<UUID> = []
     var selectedID: UUID?
@@ -97,12 +98,47 @@ import UniformTypeIdentifiers
         startQueue()
     }
 
+    func retranscribe(_ recording: Recording) {
+        guard !recording.status.isProcessing, !summarizingIDs.contains(recording.id) else { return }
+        recording.needsTranscription = true
+        retry(recording)
+    }
+
+    func delete(_ recording: Recording) async {
+        guard let index = recordings.firstIndex(where: { $0.id == recording.id }) else { return }
+        recordings.remove(at: index)
+        do { try persistence.save(recordings) }
+        catch {
+            recordings.insert(recording, at: index)
+            report(error)
+            return
+        }
+        if processingID == recording.id { queueTask?.cancel() }
+        if selectedID == recording.id { selectedID = recordings.first?.id }
+        do { try await library.remove(recording.audioFilename) }
+        catch {
+            // Keep a visible library entry if its audio could not be removed.
+            recording.status = .failed
+            recording.processingProgress = nil
+            recording.processingMessage = nil
+            recording.failureMessage = "The audio file could not be deleted. Try deleting this recording again."
+            recordings.insert(recording, at: min(index, recordings.count))
+            save()
+            report(error)
+        }
+    }
+
     private func startQueue() {
         guard queueTask == nil else { return }
         queueTask = Task { [weak self] in
             guard let self else { return }
-            defer { self.queueTask = nil }
-            while let recording = self.recordings.sorted(by: { $0.importedAt < $1.importedAt }).first(where: { $0.status == .queued }) {
+            defer {
+                self.processingID = nil
+                self.queueTask = nil
+                if self.recordings.contains(where: { $0.status == .queued }) { self.startQueue() }
+            }
+            while !Task.isCancelled, let recording = self.recordings.sorted(by: { $0.importedAt < $1.importedAt }).first(where: { $0.status == .queued }) {
+                self.processingID = recording.id
                 await self.process(recording)
             }
         }
@@ -115,12 +151,17 @@ import UniformTypeIdentifiers
             await self?.setProgress(id, message: message)
         }
         do {
-            if recording.segments.isEmpty {
+            if recording.segments.isEmpty || recording.needsTranscription {
                 recording.status = .transcribing
                 try persistence.save(recordings)
                 let segments = try await transcriber.transcribe(url, progress: progress)
+                try Task.checkCancellation()
                 guard !segments.isEmpty else { throw RecallError(message: "No speech was found in this recording. You can still play the audio.") }
                 recording.segments = segments
+                recording.needsTranscription = false
+                recording.diarizationComplete = false
+                recording.speakers = []
+                recording.summaries = []
                 // Persist this stage independently; diarization failures must never lose it.
                 try persistence.save(recordings)
             }
@@ -128,6 +169,7 @@ import UniformTypeIdentifiers
                 recording.status = .identifyingSpeakers
                 try persistence.save(recordings)
                 let turns = try await diarizer.identifySpeakers(url, progress: progress)
+                try Task.checkCancellation()
                 guard !turns.isEmpty else { throw RecallError(message: "No speakers could be identified. Your transcript is available; you can retry speaker detection.") }
                 let aligned = SpeakerAlignment.align(recording.segments, turns: turns)
                 recording.segments = aligned
@@ -142,6 +184,7 @@ import UniformTypeIdentifiers
             try persistence.save(recordings)
             logger.info("Recording processing completed")
         } catch {
+            guard !Task.isCancelled, recordings.contains(where: { $0.id == id }) else { return }
             logger.error("Recording stage failed: \(error.localizedDescription, privacy: .private)")
             recording.status = .failed
             recording.processingMessage = nil
@@ -159,18 +202,22 @@ import UniformTypeIdentifiers
     }
 
     func generateSummary(for recording: Recording, kind: SummaryKind) async {
-        guard !summarizingIDs.contains(recording.id), !recording.segments.isEmpty else { return }
+        guard !summarizingIDs.contains(recording.id), !recording.segments.isEmpty,
+              !recording.needsTranscription, !recording.status.isProcessing else { return }
         summarizingIDs.insert(recording.id)
         defer { summarizingIDs.remove(recording.id) }
         let transcript = recording.transcript
         do {
             let text = try await summarizer.summarize(transcript, kind: kind)
+            guard recordings.contains(where: { $0.id == recording.id }) else { return }
             // Replace only after success. A failed regeneration preserves the previous result.
             var summaries = recording.summaries.filter { $0.kind != kind }
             summaries.append(GeneratedSummary(kind: kind, text: text))
             recording.summaries = summaries
             try persistence.save(recordings)
-        } catch { report(error) }
+        } catch {
+            if recordings.contains(where: { $0.id == recording.id }) { report(error) }
+        }
     }
 
     func save() {

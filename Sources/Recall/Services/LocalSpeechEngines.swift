@@ -28,12 +28,16 @@ actor WhisperTranscriptionEngine: TranscriptionEngine {
         let kit = try await WhisperKit(WhisperKitConfig(model: modelName, downloadBase: models,
             modelFolder: localFolder, verbose: false, prewarm: true, load: true, download: false))
         do {
+            try Task.checkCancellation()
             await progress(ProcessingProgress(message: "Transcribing on your Mac",
                 detail: "Model setup is complete. Your recording is now being transcribed locally."))
             let results = try await kit.transcribe(
                 audioPath: audio.path,
                 audioInputOptions: AudioInputOptions(audioLoadingMode: .incremental),
-                decodeOptions: DecodingOptions(verbose: false, wordTimestamps: true)
+                // WhisperKit defaults to an English prefill with detection off.
+                // Explicit detection preserves the language actually spoken.
+                decodeOptions: DecodingOptions(verbose: false, task: .transcribe,
+                    detectLanguage: true, skipSpecialTokens: true, wordTimestamps: true)
             )
             let segments = results.flatMap(\.segments).compactMap { segment -> TranscriptSegment? in
                 let text = segment.text.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -67,9 +71,11 @@ actor SpeakerDiarizationEngine: DiarizationEngine {
             try await withModelDownloadProgress(message: "Downloading speaker models · 2 of 2", progress: progress) { callback in
                 try await (diarizer as ModelManager).downloadModels(progressCallback: callback)
             }
+            try Task.checkCancellation()
             await progress(ProcessingProgress(message: "Preparing speaker models for this Mac",
                 detail: "Model files are on this Mac. First-time preparation can take several minutes. Speaker detection starts automatically."))
             try await diarizer.loadModels()
+            try Task.checkCancellation()
             await progress(ProcessingProgress(message: "Listening for different speakers on your Mac",
                 detail: "Your transcript is saved. Identifying speakers in the recording."))
             let samples = try AudioProcessor.loadAudioAsFloatArray(fromPath: audio.path)

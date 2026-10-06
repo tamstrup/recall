@@ -23,6 +23,10 @@ Drop one or more files anywhere in the window, or use **⌘O**. WAV, M4A, MP3, a
 
 The queue transcribes and identifies speakers one recording at a time. Open a recording to play/pause or scrub. Click transcript text or a timestamp to seek, and click a speaker's name to rename them throughout that recording. In **Notes**, choose Summary, Meeting Minutes, Decisions, Action Items, or Clean Notes, then Generate. Transcript and notes can be copied.
 
+Recall detects the spoken language and transcribes in that language. For recordings processed by an earlier version with incorrect language detection, open the **…** menu beside the title and choose **Transcribe Again…**. The existing transcript, speaker names, and notes remain until the new transcription succeeds; successful retranscription replaces them. A failed attempt can be retried.
+
+Use **Delete Recording…** in the same menu, or right-click a recording in the sidebar. Confirming removes Recall's managed audio copy, transcript, and notes; it never deletes the original imported file. Deleting an active recording cancels its processing and lets the remaining queue continue after the current model operation returns.
+
 Failed speaker detection preserves the transcript. Retry resumes the missing stage. Quitting stops processing; reopening automatically retries unfinished recordings. An interrupted transcription restarts from the beginning because partial transcripts are not saved. If transcription finished and was saved, recovery starts with speaker detection. Imported audio and completed results remain in the library. Failed summary regeneration preserves the previous result.
 
 ## Models and storage
@@ -60,7 +64,7 @@ Speaker separation and transcription are estimates, particularly with overlappin
 
 Apple summaries are unavailable on unsupported Macs or while Apple Intelligence is disabled/downloading. There is no cloud fallback. Long recordings use lossy chunk reduction; check important names, decisions, and deadlines against the audio. Existing notes are snapshots: regenerate after renaming speakers if you want updated names.
 
-This is a locally signed development app, not a notarized distribution. No deletion UI, live recording, search, projects, or cloud sync is included. See `TODO_USER.md` for any checks that still need you, and `docs/VALIDATION.md` for verification evidence.
+This is a locally signed development app, not a notarized distribution. No live recording, search, projects, or cloud sync is included. See `TODO_USER.md` for any checks that still need you, and `docs/VALIDATION.md` for verification evidence.
 
 ## Icon and UI previews
 

@@ -10,6 +10,8 @@ struct RecordingDetail: View {
     @State private var editedName = ""
     @State private var summaryKind = SummaryKind.summary
     @State private var summaryUnavailable = SummaryAvailability.unavailableReason
+    @State private var confirmDelete = false
+    @State private var confirmRetranscription = false
     private enum DetailTab: String, CaseIterable { case transcript = "Transcript", notes = "Notes" }
 
     var body: some View {
@@ -26,7 +28,7 @@ struct RecordingDetail: View {
                         Text(message).foregroundStyle(.secondary).textSelection(.enabled)
                     }
                     Spacer()
-                    Button(recording.segments.isEmpty ? "Retry" : "Retry Speakers") { store.retry(recording) }
+                    Button(recording.segments.isEmpty || recording.needsTranscription ? "Retry" : "Retry Speakers") { store.retry(recording) }
                 }.font(.callout).padding(.horizontal, 32).padding(.bottom, 20)
             }
             if recording.status.isProcessing || recording.status == .queued {
@@ -63,6 +65,19 @@ struct RecordingDetail: View {
             #endif
         }
         .onDisappear { player.stop() }
+        .confirmationDialog("Delete this recording?", isPresented: $confirmDelete, titleVisibility: .visible) {
+            Button("Delete Recording", role: .destructive) {
+                player.stop()
+                Task { await store.delete(recording) }
+            }
+        } message: {
+            Text("This deletes Recall’s copy of the audio, transcript, and notes. Your original file is unchanged.")
+        }
+        .confirmationDialog("Transcribe this recording again?", isPresented: $confirmRetranscription, titleVisibility: .visible) {
+            Button("Transcribe Again") { store.retranscribe(recording) }
+        } message: {
+            Text("Recall will detect the spoken language again. The current transcript, speaker names, and notes are replaced only after the new transcription succeeds.")
+        }
         .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
             summaryUnavailable = SummaryAvailability.unavailableReason
         }
@@ -84,11 +99,21 @@ struct RecordingDetail: View {
 
     private var header: some View {
         VStack(alignment: .leading, spacing: 10) {
-            TextField("Recording title", text: $recording.title)
-                .textFieldStyle(.plain).font(.system(size: 25, weight: .semibold))
-                .onSubmit { store.save() }
-                .onChange(of: recording.title) { _, _ in store.save() }
-                .accessibilityLabel("Recording title")
+            HStack(alignment: .top) {
+                TextField("Recording title", text: $recording.title)
+                    .textFieldStyle(.plain).font(.system(size: 25, weight: .semibold))
+                    .onSubmit { store.save() }
+                    .onChange(of: recording.title) { _, _ in store.save() }
+                    .accessibilityLabel("Recording title")
+                Menu {
+                    Button("Transcribe Again…") { confirmRetranscription = true }
+                        .disabled(recording.status.isProcessing || recording.needsTranscription || store.summarizingIDs.contains(recording.id))
+                    Divider()
+                    Button("Delete Recording…", role: .destructive) { confirmDelete = true }
+                } label: { Image(systemName: "ellipsis.circle").font(.title3) }
+                    .menuStyle(.borderlessButton).menuIndicator(.hidden).fixedSize()
+                    .accessibilityLabel("Recording actions")
+            }
             HStack(spacing: 7) {
                 Text(recording.importedAt, format: .dateTime.day().month(.wide).year())
                 Text("·")
@@ -175,7 +200,7 @@ struct RecordingDetail: View {
                         Button(recording.summaries.contains(where: { $0.kind == summaryKind }) ? "Regenerate" : "Generate") {
                             let kind = summaryKind
                             Task { await store.generateSummary(for: recording, kind: kind) }
-                        }.disabled(recording.segments.isEmpty || summaryUnavailable != nil)
+                        }.disabled(recording.segments.isEmpty || recording.needsTranscription || recording.status.isProcessing || summaryUnavailable != nil)
                     }
                 }
                 if let reason = summaryUnavailable {

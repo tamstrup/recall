@@ -27,7 +27,7 @@ Run regular tests:
 ./Scripts/swift.sh test --enable-swift-testing
 ```
 
-Run the opt-in decoder and local-model checks (downloads models on first use; requires installed Samantha and Daniel voices and network access for the public silent MP3 fixture):
+Run the opt-in decoder and local-model checks (downloads models on first use; requires installed Samantha, Daniel, and Sara voices and network access for the public silent MP3 fixture):
 
 ```sh
 ./Scripts/test-local-models.sh
@@ -72,3 +72,15 @@ Built the optimized ARM64 app as version 0.1.2 (build 3), verified its local cod
 Preparation now explicitly says the model files are already on the Mac. Stages without a measurable percentage use a native indeterminate linear bar, an explicit percentage-unavailable label, and elapsed time. Before the first download callback, the app says it is checking model files rather than claiming a download is underway. Transcription and speaker detection also explain what is happening and whether the transcript has been saved.
 
 This clarifies recovery of an import interrupted in an earlier version: completed model downloads are reused, models are prepared for use, and unfinished transcription starts again. No processing or persistence behavior changed. All 16 regular tests passed, including disk-backed recovery and callback ordering; the three opt-in integration tests were skipped for this UI/copy change. The native preparation screenshot was refreshed and inspected at the minimum window size in dark mode.
+
+## Original-language transcription, speaker gaps, and deletion (0.1.4)
+
+WhisperKit 1.1.0 defaults to prefilled English with language detection disabled. Recall now explicitly enables detection, requests transcription rather than translation, and omits model-control tokens from the text. A real local-model test with 26 seconds of synthetic Danish speech produced Danish text, one speaker, one paragraph, and zero unassigned words out of 75. The existing English two-voice fixture still produced two speakers. These fixtures validate the fixes but are not a substitute for checking the user's original recording.
+
+Speaker alignment now assigns zero-duration words to a containing speaker turn and bridges gaps of at most 0.6 seconds only when bounded by the same speaker. Gaps between different speakers and longer uncovered intervals remain unassigned. Adjacent blocks with the same speaker merge into bounded paragraphs; long pauses and actual speaker changes stay separate. Word timestamps remain available for alignment.
+
+Added **Transcribe Again…** for repairing existing recordings without duplicate import. Old results survive a failed attempt; the pending flag survives restart and defaults safely when reading older library data. Added confirmed deletion in the title menu and sidebar context menu. Deletion removes saved results and the managed audio, leaves the original untouched, cancels active processing, and ignores late results so deleted items cannot return. A failed database write restores the row; failed audio removal restores a visible entry for retry.
+
+All 23 regular tests and three opt-in integration tests passed; the unrelated Apple summary test was skipped. Coverage includes original-file preservation, SQLite deletion, deleting a running recording while its engine returns late, queue continuation, failed/successful retranscription, old library decoding, zero-duration words, short same-speaker gaps, unknown speech, and paragraph boundaries.
+
+Inspected the title actions control in a native minimum-size window (`docs/screenshots/recording-actions.png`). Built release 0.1.4 (build 5), verified the ARM64 binary and local code signature, and validated `build/Recall-0.1.4-macOS-arm64.zip`. The unversioned ZIP was refreshed to this release.

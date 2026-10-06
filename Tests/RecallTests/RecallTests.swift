@@ -27,6 +27,18 @@ struct StubSummarizer: SummaryEngine {
     }
 }
 
+actor PausingFirstTranscriber: TranscriptionEngine {
+    var calls = 0
+    private var continuation: CheckedContinuation<Void, Never>?
+    func transcribe(_ audio: URL, progress: @escaping EngineProgress) async throws -> [TranscriptSegment] {
+        calls += 1
+        if calls == 1 { await withCheckedContinuation { continuation = $0 } }
+        // Deliberately ignores cancellation to simulate a model call finishing late.
+        return [TranscriptSegment(start: 0, end: 2, text: "Finished")]
+    }
+    func resume() { continuation?.resume(); continuation = nil }
+}
+
 @Suite @MainActor struct RecallTests {
     private func store(diarizationFails: Bool = false, transcriptionFails: Bool = false,
                        summaryFails: Bool = false, items: [Recording] = []) throws -> RecallStore {
@@ -84,6 +96,80 @@ struct StubSummarizer: SummaryEngine {
         store.recoverQueue()
         try await awaitCompletion(item)
         #expect(item.status == .ready)
+    }
+
+    @Test func retranscriptionReplacesOldResultsOnlyAfterSuccess() async throws {
+        let item = recording()
+        item.status = .ready
+        item.diarizationComplete = true
+        item.segments = [TranscriptSegment(start: 0, end: 2, text: "Old English text")]
+        item.summaries = [GeneratedSummary(kind: .summary, text: "Old notes")]
+        let failing = try store(transcriptionFails: true, items: [item])
+        failing.retranscribe(item)
+        try await awaitCompletion(item)
+        #expect(item.status == .failed)
+        #expect(item.needsTranscription)
+        #expect(item.segments.first?.text == "Old English text")
+        #expect(item.summaries.first?.text == "Old notes")
+        let succeeding = try store(items: [item])
+        succeeding.retry(item)
+        try await awaitCompletion(item)
+        #expect(item.status == .ready)
+        #expect(!item.needsTranscription)
+        #expect(item.segments.first?.text == "We agreed to ship on Friday.")
+        #expect(item.summaries.isEmpty)
+    }
+
+    @Test func deletionRemovesManagedCopyAndSavedResultsButPreservesOriginal() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let database = folder.appendingPathComponent("test.sqlite")
+        let persistence = try RecordingPersistence(url: database)
+        let item = recording()
+        item.status = .ready
+        item.segments = [TranscriptSegment(start: 0, end: 1, text: "Saved text")]
+        try persistence.save([item])
+        let library = AudioLibrary(root: folder.appendingPathComponent("Audio"))
+        try FileManager.default.createDirectory(at: library.root, withIntermediateDirectories: true)
+        let original = folder.appendingPathComponent("original.wav")
+        try Data("original audio".utf8).write(to: original)
+        try FileManager.default.copyItem(at: original, to: library.url(for: item.audioFilename))
+        let store = RecallStore(persistence: persistence, library: library,
+            transcriber: StubTranscriber(), diarizer: StubDiarizer(), summarizer: StubSummarizer())
+        store.selectedID = item.id
+        await store.delete(item)
+        #expect(store.recordings.isEmpty)
+        #expect(store.selectedID == nil)
+        #expect(!FileManager.default.fileExists(atPath: library.url(for: item.audioFilename).path))
+        #expect(try Data(contentsOf: original) == Data("original audio".utf8))
+        #expect(try RecordingPersistence(url: database).recordings.isEmpty)
+    }
+
+    @Test func deletingActiveRecordingDoesNotResurrectItAndQueueContinues() async throws {
+        let first = recording()
+        first.importedAt = Date().addingTimeInterval(-10)
+        let next = recording()
+        let persistence = try RecordingPersistence()
+        try persistence.save([first, next])
+        let engine = PausingFirstTranscriber()
+        let store = RecallStore(persistence: persistence,
+            library: AudioLibrary(root: FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)),
+            transcriber: engine, diarizer: StubDiarizer(), summarizer: StubSummarizer())
+        store.recoverQueue()
+        for _ in 0..<100 {
+            if await engine.calls == 1 { break }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        #expect(await engine.calls == 1)
+        await store.delete(first)
+        await engine.resume()
+        try await awaitCompletion(next)
+        #expect(next.status == .ready)
+        #expect(store.recordings.map(\.id) == [next.id])
+        #expect(persistence.recordings.map(\.id) == [next.id])
+        #expect(first.segments.isEmpty)
+        #expect(store.alertMessage == nil)
     }
 
     @Test func interruptedSpeakerDetectionReopensFromDiskWithoutRetranscribing() async throws {
@@ -150,6 +236,19 @@ struct StubSummarizer: SummaryEngine {
         #expect(loaded.transcript.contains("Patrick"))
         #expect(loaded.segments.first?.start == 0.5)
         #expect(loaded.summaries.first?.text == "Ship it")
+    }
+
+    @Test func oldRecordingsDecodeAndPendingRetranscriptionSurvivesRestart() throws {
+        let item = recording()
+        var legacy = try #require(JSONSerialization.jsonObject(with: JSONEncoder().encode(item)) as? [String: Any])
+        legacy.removeValue(forKey: "needsTranscription")
+        let decoded = try JSONDecoder().decode(Recording.self, from: JSONSerialization.data(withJSONObject: legacy))
+        #expect(!decoded.needsTranscription)
+        decoded.needsTranscription = true
+        decoded.segments = [TranscriptSegment(start: 0, end: 1, text: "Old result")]
+        let reopened = try JSONDecoder().decode(Recording.self, from: JSONEncoder().encode(decoded))
+        #expect(reopened.needsTranscription)
+        #expect(reopened.segments.first?.text == "Old result")
     }
 
     @Test func finderDropMultiImportDedupAndInvalidFile() async throws {
@@ -230,6 +329,39 @@ struct StubSummarizer: SummaryEngine {
 }
 
 @Suite struct TranscriptTests {
+    @Test func zeroDurationWordsAndShortSameSpeakerGapsStayTogether() {
+        let words = [TranscriptWord(start: 0, end: 0.4, text: " Hej"),
+                     TranscriptWord(start: 0.4, end: 0.4, text: " med"),
+                     TranscriptWord(start: 0.5, end: 0.6, text: " dig"),
+                     TranscriptWord(start: 0.8, end: 1, text: " igen")]
+        let result = SpeakerAlignment.align([TranscriptSegment(start: 0, end: 1, text: "Hej med dig igen", words: words)],
+            turns: [SpeakerTurn(start: 0, end: 0.5, speakerID: 4), SpeakerTurn(start: 0.7, end: 1.1, speakerID: 4)])
+        #expect(result.count == 1)
+        #expect(result.first?.speakerID == 0)
+        #expect(result.first?.text == "Hej med dig igen")
+        #expect(result.first?.words == words)
+    }
+
+    @Test func gapsBetweenDifferentSpeakersAndLongGapsRemainUnknown() {
+        let segment = TranscriptSegment(start: 0.5, end: 0.6, text: "Hej", words: [TranscriptWord(start: 0.5, end: 0.6, text: "Hej")])
+        for turns in [
+            [SpeakerTurn(start: 0, end: 0.4, speakerID: 0), SpeakerTurn(start: 0.7, end: 1, speakerID: 1)],
+            [SpeakerTurn(start: 0, end: 0.4, speakerID: 0), SpeakerTurn(start: 2, end: 3, speakerID: 0)]
+        ] {
+            #expect(SpeakerAlignment.align([segment], turns: turns).first?.speakerID == nil)
+        }
+    }
+
+    @Test func consecutiveSegmentsFromSameSpeakerFormParagraphs() {
+        let segments = [TranscriptSegment(start: 0, end: 1, text: "Første sætning."),
+                        TranscriptSegment(start: 1.1, end: 2, text: "Anden sætning."),
+                        TranscriptSegment(start: 8, end: 9, text: "Efter en pause.")]
+        let result = SpeakerAlignment.align(segments, turns: [SpeakerTurn(start: 0, end: 10, speakerID: 0)])
+        #expect(result.count == 2)
+        #expect(result.first?.text == "Første sætning. Anden sætning.")
+        #expect(result.first?.start == 0)
+        #expect(result.first?.end == 2)
+    }
     @Test func wordAlignmentSplitsAtSpeakerChangeAndKeepsUnknowns() {
         let segment = TranscriptSegment(start: 0, end: 4, text: "Hello there everyone", words: [
             TranscriptWord(start: 0, end: 1, text: " Hello"),
@@ -257,7 +389,29 @@ struct StubSummarizer: SummaryEngine {
     }
 }
 
-@Suite struct LocalModelIntegrationTests {
+@Suite(.serialized) struct LocalModelIntegrationTests {
+    @Test(.enabled(if: ProcessInfo.processInfo.environment["RECALL_TEST_DANISH_AUDIO"] != nil))
+    func danishSingleSpeakerStaysDanishAndReadable() async throws {
+        let env = ProcessInfo.processInfo.environment
+        let audio = URL(fileURLWithPath: try #require(env["RECALL_TEST_DANISH_AUDIO"]))
+        let models = URL(fileURLWithPath: try #require(env["RECALL_TEST_MODELS"]))
+        #expect(try AudioSignal.hasAudibleSamples(audio))
+        let segments = try await WhisperTranscriptionEngine(models: models).transcribe(audio) { _ in }
+        let text = segments.map(\.text).joined(separator: " ").lowercased()
+        #expect(text.contains("københavn"))
+        #expect(text.contains("dansk"))
+        #expect(!text.contains("copenhagen"))
+        #expect(!text.contains("<|"))
+        let turns = try await SpeakerDiarizationEngine(models: models).identifySpeakers(audio) { _ in }
+        let aligned = SpeakerAlignment.align(segments, turns: turns)
+        #expect(Set(aligned.compactMap(\.speakerID)).count == 1)
+        let unknown = aligned.filter { $0.speakerID == nil }.flatMap(\.words).count
+        let total = aligned.flatMap(\.words).count
+        #expect(total > 20)
+        #expect(Double(unknown) / Double(max(1, total)) < 0.1)
+        #expect(!aligned.map(\.text).joined().contains("<|"))
+        print("DANISH: \(aligned.count) blocks, \(unknown)/\(total) unassigned words: \(text)")
+    }
     @Test(.enabled(if: ProcessInfo.processInfo.environment["RECALL_TEST_AUDIO"] != nil))
     func realLocalSpeechPipeline() async throws {
         let env = ProcessInfo.processInfo.environment

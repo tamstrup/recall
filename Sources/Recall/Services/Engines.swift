@@ -31,19 +31,37 @@ enum SpeakerAlignment {
         var cursor = 0
         var previousStart = -Double.infinity
         func speaker(start: Double, end: Double) -> Int? {
+            guard start.isFinite, end.isFinite, end >= start else { return nil }
             if start < previousStart { cursor = 0 }
             previousStart = start
             while cursor < orderedTurns.count, orderedTurns[cursor].end <= start { cursor += 1 }
             var candidate = cursor
             var bestOverlap = 0.0
             var best: Int?
+            // Whisper can give punctuation and short words zero-duration timestamps.
+            // Such a word still belongs to a turn containing its timestamp.
+            if end == start, let turn = orderedTurns.dropFirst(cursor).prefix(while: { $0.start <= start }).first(where: { $0.end > start }) {
+                return turn.speakerID
+            }
             while candidate < orderedTurns.count, orderedTurns[candidate].start < end {
                 let turn = orderedTurns[candidate]
                 let overlap = max(0, min(end, turn.end) - max(start, turn.start))
                 if overlap > bestOverlap { bestOverlap = overlap; best = turn.speakerID }
                 candidate += 1
             }
-            return best
+            if let best { return best }
+            // Bridge only a short gap bounded by the SAME speaker. Do not guess
+            // across speaker changes or genuinely uncovered stretches of audio.
+            if cursor > 0, cursor < orderedTurns.count {
+                let before = orderedTurns[cursor - 1]
+                let after = orderedTurns[cursor]
+                if before.speakerID == after.speakerID,
+                   before.end <= start, after.start >= end,
+                   after.start - before.end <= 0.6 {
+                    return before.speakerID
+                }
+            }
+            return nil
         }
         var result: [TranscriptSegment] = []
         for segment in segments {
@@ -73,7 +91,7 @@ enum SpeakerAlignment {
         }
         // Normalize arbitrary cluster IDs to stable, human-friendly order of appearance.
         var mapping: [Int: Int] = [:]
-        return result.map { segment in
+        let normalized = result.map { segment in
             var copy = segment
             if let id = segment.speakerID {
                 if mapping[id] == nil { mapping[id] = mapping.count }
@@ -81,5 +99,18 @@ enum SpeakerAlignment {
             }
             return copy
         }
+        var paragraphs: [TranscriptSegment] = []
+        for segment in normalized {
+            if let last = paragraphs.indices.last,
+               paragraphs[last].speakerID == segment.speakerID,
+               segment.start >= paragraphs[last].start,
+               segment.start - paragraphs[last].end <= 1.5,
+               paragraphs[last].text.count + segment.text.count < 600 {
+                paragraphs[last].text += " " + segment.text
+                paragraphs[last].end = max(paragraphs[last].end, segment.end)
+                paragraphs[last].words += segment.words
+            } else { paragraphs.append(segment) }
+        }
+        return paragraphs
     }
 }

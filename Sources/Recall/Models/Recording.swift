@@ -76,6 +76,7 @@ struct GeneratedSummary: Codable, Identifiable, Sendable {
     var speakers: [Speaker]
     var summaries: [GeneratedSummary]
     var diarizationComplete: Bool
+    var needsTranscription = false
 
     init(id: UUID = UUID(), originalFilename: String, audioFilename: String,
          contentHash: String, duration: Double) {
@@ -95,7 +96,7 @@ struct GeneratedSummary: Codable, Identifiable, Sendable {
 
     private enum CodingKeys: String, CodingKey {
         case id, originalFilename, audioFilename, contentHash, title, importedAt, duration,
-             statusRaw, processingMessage, failureMessage, segments, speakers, summaries, diarizationComplete
+             statusRaw, processingMessage, failureMessage, segments, speakers, summaries, diarizationComplete, needsTranscription
     }
     required init(from decoder: Decoder) throws {
         let c = try decoder.container(keyedBy: CodingKeys.self)
@@ -113,6 +114,7 @@ struct GeneratedSummary: Codable, Identifiable, Sendable {
         speakers = try c.decode([Speaker].self, forKey: .speakers)
         summaries = try c.decode([GeneratedSummary].self, forKey: .summaries)
         diarizationComplete = try c.decode(Bool.self, forKey: .diarizationComplete)
+        needsTranscription = try c.decodeIfPresent(Bool.self, forKey: .needsTranscription) ?? false
     }
     func encode(to encoder: Encoder) throws {
         var c = encoder.container(keyedBy: CodingKeys.self)
@@ -130,6 +132,7 @@ struct GeneratedSummary: Codable, Identifiable, Sendable {
         try c.encode(speakers, forKey: .speakers)
         try c.encode(summaries, forKey: .summaries)
         try c.encode(diarizationComplete, forKey: .diarizationComplete)
+        try c.encode(needsTranscription, forKey: .needsTranscription)
     }
 
     var status: ProcessingStatus {

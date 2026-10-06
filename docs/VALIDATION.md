@@ -90,3 +90,11 @@ Inspected the title actions control in a native minimum-size window (`docs/scree
 Replaced the waveform icon with the user's `Recall-AppIcon-macOS.zip` assets: lilac lips on a dark rounded square. Copied the catalog, iconset, master PNG, ICNS, original artwork, and supplied prompt without regenerating the images. Verified all package SHA-256 checksums, all ten PNG dimensions and alpha channels, matching catalog/iconset bytes, and all ten embedded ICNS PNGs against the supplied iconset.
 
 Built debug and release 0.1.5 (build 6). Inspected the icon in an isolated native Inbox capture and refreshed `docs/screenshots/inbox.png`. Verified the packaged ICNS matches the supplied asset exactly, the local app signature is valid, and the versioned transfer ZIP passes its integrity check. No processing code changed, so the speech tests were not rerun.
+
+## Native macOS icon presentation (0.1.6)
+
+Reproduced the reported silver frame by rendering the 0.1.5 app through the public `NSWorkspace.shared.icon(forFile:)` API on macOS 27. Added an Icon Composer source containing the unchanged supplied master PNG, compiled it with Xcode 26.3 (17C529) in [GitHub Actions run 37538628717](https://github.com/tamstrup/recall/actions/runs/37538628717), and inspected its Default and Dark previews. The rebuilt app's system-rendered icon has no silver frame. Before/after captures are `docs/screenshots/icon-system-before.png` and `icon-system-after.png`. Older supported macOS versions were not visually tested.
+
+The compiled catalog is checked in so Command Line Tools builds remain supported. Verified source/catalog SHA-256 hashes and confirmed a deliberately modified temporary catalog is rejected. Confirmed the composition's PNG matches the approved master byte for byte, packaged assets match their sources, and `CFBundleIconName` matches the compiler metadata. The supplied legacy ICNS is still bundled unchanged.
+
+Built optimized ARM64 release 0.1.6 (build 7), verified its local code signature, and validated `build/Recall-0.1.6-macOS-arm64.zip` with `unzip -t`. The unversioned transfer ZIP was refreshed. No processing code changed, so speech tests were not rerun.

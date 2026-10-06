@@ -66,3 +66,9 @@ New checks cover partial-file percentages, immutable callback snapshots, unknown
 Inspected native download and preparation panels in light/dark mode at the minimum window size. Bounded multiline labels prevent SwiftUI's split-view minimum-size measurement from expanding the content beyond the window. The captures in `docs/screenshots/model-download.png` and `model-preparation-dark.png` use synthetic progress and an isolated preview library.
 
 Built the optimized ARM64 app as version 0.1.2 (build 3), verified its local code signature, and validated `build/Recall-0.1.2-macOS-arm64.zip` with `unzip -t`. The unversioned transfer ZIP contains the same release. Model weights remain separate and download on each Mac's first use.
+
+## Clarify preparation after restarting (0.1.3)
+
+Preparation now explicitly says the model files are already on the Mac. Stages without a measurable percentage use a native indeterminate linear bar, an explicit percentage-unavailable label, and elapsed time. Before the first download callback, the app says it is checking model files rather than claiming a download is underway. Transcription and speaker detection also explain what is happening and whether the transcript has been saved.
+
+This clarifies recovery of an import interrupted in an earlier version: completed model downloads are reused, models are prepared for use, and unfinished transcription starts again. No processing or persistence behavior changed. All 16 regular tests passed, including disk-backed recovery and callback ordering; the three opt-in integration tests were skipped for this UI/copy change. The native preparation screenshot was refreshed and inspected at the minimum window size in dark mode.

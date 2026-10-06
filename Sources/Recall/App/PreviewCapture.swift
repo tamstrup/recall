@@ -52,7 +52,7 @@ import AVFoundation
             sample.setUserInfoObject(4_200_000.0, forKey: .throughputKey)
             item.processingProgress = mode == "preparing"
                 ? ProcessingProgress(message: "Preparing transcription model for this Mac", startedAt: Date().addingTimeInterval(-92),
-                    detail: "First-time preparation can take several minutes. Transcription starts automatically.")
+                    detail: "Model files are on this Mac. First-time preparation can take several minutes. Transcription starts automatically.")
                 : ProcessingProgress(message: "Downloading transcription model · 1 of 2", startedAt: Date().addingTimeInterval(-24),
                     download: DownloadProgress(sample), detail: "Models download once and stay on this Mac.")
         }

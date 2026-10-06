@@ -24,11 +24,12 @@ actor WhisperTranscriptionEngine: TranscriptionEngine {
             localFolder = folder.path
         }
         await progress(ProcessingProgress(message: "Preparing transcription model for this Mac",
-            detail: "First-time preparation can take several minutes. Transcription starts automatically."))
+            detail: "Model files are on this Mac. First-time preparation can take several minutes. Transcription starts automatically."))
         let kit = try await WhisperKit(WhisperKitConfig(model: modelName, downloadBase: models,
             modelFolder: localFolder, verbose: false, prewarm: true, load: true, download: false))
         do {
-            await progress("Transcribing on your Mac")
+            await progress(ProcessingProgress(message: "Transcribing on your Mac",
+                detail: "Model setup is complete. Your recording is now being transcribed locally."))
             let results = try await kit.transcribe(
                 audioPath: audio.path,
                 audioInputOptions: AudioInputOptions(audioLoadingMode: .incremental),
@@ -67,9 +68,10 @@ actor SpeakerDiarizationEngine: DiarizationEngine {
                 try await (diarizer as ModelManager).downloadModels(progressCallback: callback)
             }
             await progress(ProcessingProgress(message: "Preparing speaker models for this Mac",
-                detail: "First-time preparation can take several minutes. Speaker detection starts automatically."))
+                detail: "Model files are on this Mac. First-time preparation can take several minutes. Speaker detection starts automatically."))
             try await diarizer.loadModels()
-            await progress("Listening for different speakers on your Mac")
+            await progress(ProcessingProgress(message: "Listening for different speakers on your Mac",
+                detail: "Your transcript is saved. Identifying speakers in the recording."))
             let samples = try AudioProcessor.loadAudioAsFloatArray(fromPath: audio.path)
             let result = try await kit.diarize(audioArray: samples)
             let turns = result.segments.compactMap { segment -> SpeakerTurn? in

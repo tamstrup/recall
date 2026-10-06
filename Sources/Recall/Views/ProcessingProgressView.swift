@@ -26,10 +26,13 @@ struct ProcessingProgressView: View {
                     elapsed
                 }.font(.caption).foregroundStyle(.secondary).lineLimit(1)
             } else {
-                HStack(spacing: 9) {
-                    ProgressView().controlSize(.small)
+                ProgressView().progressViewStyle(.linear).tint(.purple)
+                    .accessibilityLabel(progress.message + ". Progress percentage unavailable.")
+                HStack {
+                    Text("In progress · percentage unavailable")
+                    Spacer()
                     elapsed
-                }.font(.caption).foregroundStyle(.secondary)
+                }.font(.caption).foregroundStyle(.secondary).lineLimit(1)
             }
             if let detail = progress.detail {
                 Text(detail).font(.caption).foregroundStyle(.secondary).lineLimit(2)

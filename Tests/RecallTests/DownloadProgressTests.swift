@@ -42,7 +42,7 @@ struct DownloadProgressTests {
         }
         await recorder.append("Preparing")
         let values = await recorder.values
-        #expect(values.first?.message == "Downloading")
+        #expect(values.first?.message == "Checking model files")
         #expect(values.dropLast().last?.download?.percent == 100)
         #expect(values.last?.message == "Preparing")
     }

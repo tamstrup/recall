@@ -48,7 +48,8 @@ func withModelDownloadProgress<T>(message: String, progress: @escaping EnginePro
     operation: (@escaping @Sendable (Progress) -> Void) async throws -> T) async throws -> T {
     let startedAt = Date()
     let detail = "Models download once and stay on this Mac."
-    await progress(ProcessingProgress(message: message, startedAt: startedAt, detail: detail))
+    await progress(ProcessingProgress(message: "Checking model files", startedAt: startedAt,
+        detail: "Looking for models on this Mac. Missing files download automatically."))
     let (stream, continuation) = AsyncStream<DownloadProgress>.makeStream(bufferingPolicy: .bufferingNewest(1))
     let consumer = Task {
         for await snapshot in stream {

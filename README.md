@@ -27,7 +27,7 @@ Failed speaker detection preserves the transcript. Retry resumes the missing sta
 
 ## Models and storage
 
-First import automatically downloads Whisper `large-v3-v20240930_626MB` and SpeakerKit's default Pyannote models from Hugging Face. Each download shows a progress bar, percentage across model files, completed file count, download speed when available, and elapsed time. The SDK weights files equally, so this is file progress, not a byte percentage or time estimate. Model preparation is a separate stage with elapsed time; it can take several minutes on first use. Allow several GB of free space for downloads, compiled models, and audio. No Hugging Face account or API key is required. Subsequent processing uses local models. Foundation Models is supplied and downloaded by macOS itself.
+First import automatically downloads Whisper `large-v3-v20240930_626MB` and SpeakerKit's default Pyannote models from Hugging Face. Each download shows a progress bar, percentage across model files, completed file count, download speed when available, and elapsed time. The SDK weights files equally, so this is file progress, not a byte percentage or time estimate. Model preparation is a separate stage: the files are already on the Mac, and first-time preparation can take several minutes. Preparation and other stages without a measurable percentage show an animated bar, an explicit percentage-unavailable label, and elapsed time. Allow several GB of free space for downloads, compiled models, and audio. No Hugging Face account or API key is required. Subsequent processing uses local models. Foundation Models is supplied and downloaded by macOS itself.
 
 Library: `~/Library/Application Support/Recall/`
 

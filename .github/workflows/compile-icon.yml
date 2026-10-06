@@ -1,0 +1,53 @@
+name: Compile macOS icon
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'Assets/Recall.icon/**'
+      - 'Scripts/compile-icon.sh'
+      - 'Scripts/icon-assets.py'
+      - '.github/workflows/compile-icon.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  compile:
+    runs-on: macos-15
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Select Xcode 26 or newer
+        run: |
+          XCODE_APP=$(python3 - <<'PY'
+          from pathlib import Path
+          import re
+          versions = []
+          for path in Path('/Applications').glob('Xcode_*.app'):
+              version = tuple(map(int, re.findall(r'\d+', path.stem)))
+              if version and version[0] >= 26:
+                  versions.append((version, str(path)))
+          if not versions:
+              raise SystemExit('This runner needs Xcode 26 or newer.')
+          print(max(versions)[1])
+          PY
+          )
+          sudo xcode-select --switch "$XCODE_APP/Contents/Developer"
+          xcodebuild -version
+      - name: Compile and render the approved artwork
+        run: |
+          zsh Scripts/compile-icon.sh "$PWD/build/native-icon/CompiledIcon"
+          ICON_TOOL="$(xcode-select -p)/../Applications/Icon Composer.app/Contents/Executables/ictool"
+          mkdir -p build/native-icon/previews
+          for appearance in Default Dark; do
+            "$ICON_TOOL" Assets/Recall.icon --export-image \
+              --output-file "build/native-icon/previews/$appearance.png" \
+              --platform macOS --rendition "$appearance" --width 256 --height 256 --scale 1
+          done
+          assetutil --info build/native-icon/CompiledIcon/Assets.car > build/native-icon/catalog-info.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: recall-native-icon
+          path: build/native-icon/
+          if-no-files-found: error

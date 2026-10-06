@@ -64,4 +64,4 @@ This is a locally signed development app, not a notarized distribution. No delet
 
 ## Icon and UI previews
 
-The flat conversation-trace icon is generated from vector paths by `Scripts/generate-icon.swift`. `Assets/` includes a complete macOS asset catalog, iconset, 1024 px master, and `.icns`. See `docs/ICON.md` for concept selection. Screenshots under `docs/screenshots/` are native SwiftUI captures using isolated synthetic sample data.
+The approved purple voice-to-text icon uses a shaded waveform flowing into transcript lines. Its original artwork and image-generation prompt are saved in `Assets/IconSource/`. `Scripts/generate-icon.swift` resamples that artwork into a complete macOS asset catalog, iconset, 1024 px master, and `.icns` (using `iconutil`). The Inbox uses the same bundled icon. See `docs/ICON.md` for regeneration instructions. Screenshots under `docs/screenshots/` are native SwiftUI captures using isolated synthetic sample data.

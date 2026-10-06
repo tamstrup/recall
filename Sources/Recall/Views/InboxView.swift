@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import UniformTypeIdentifiers
 
 struct InboxView: View {
@@ -46,8 +47,8 @@ struct InboxView: View {
                 RecordingDetail(recording: recording).id(recording.id)
             } else {
                 VStack(spacing: 18) {
-                    RecallMark().stroke(Color.accentColor, style: StrokeStyle(lineWidth: 2.7, lineCap: .round, lineJoin: .round))
-                        .frame(width: 56, height: 56).padding(.bottom, 8)
+                    RecallLogo()
+                        .frame(width: 72, height: 72).padding(.bottom, 8)
                     Text(recordings.isEmpty ? "Drop recordings here" : "Choose a recording")
                         .font(.system(size: 23, weight: .medium))
                     Text(recordings.isEmpty ? "A place to return to what was said." : "Listen, read, and make something useful.")
@@ -112,18 +113,16 @@ struct RecordingRow: View {
     }
 }
 
-struct RecallMark: Shape {
-    func path(in rect: CGRect) -> Path {
-        var p = Path()
-        func point(_ x: CGFloat, _ y: CGFloat) -> CGPoint { CGPoint(x: rect.minX + x * rect.width, y: rect.minY + y * rect.height) }
-        p.move(to: point(0.75, 0.18))
-        p.addCurve(to: point(0.17, 0.48), control1: point(0.42, -0.04), control2: point(0.06, 0.13))
-        p.addCurve(to: point(0.78, 0.78), control1: point(0.16, 0.84), control2: point(0.50, 1.00))
-        p.addCurve(to: point(0.87, 0.48), control1: point(0.89, 0.68), control2: point(0.91, 0.55))
-        p.move(to: point(0.60, 0.18)); p.addLine(to: point(0.75, 0.18)); p.addLine(to: point(0.75, 0.03))
-        for (y, end) in [(0.39, 0.63), (0.51, 0.69), (0.63, 0.56)] {
-            p.move(to: point(0.36, y)); p.addLine(to: point(end, y))
+struct RecallLogo: View {
+    var body: some View {
+        if let url = Bundle.main.url(forResource: "Recall", withExtension: "icns"),
+           let icon = NSImage(contentsOf: url) {
+            Image(nsImage: icon).resizable().interpolation(.high).scaledToFit()
+                .accessibilityHidden(true)
+        } else {
+            // A bare `swift run` executable has no app bundle resources.
+            Image(systemName: "waveform").resizable().scaledToFit()
+                .foregroundStyle(.purple).accessibilityHidden(true)
         }
-        return p
     }
 }

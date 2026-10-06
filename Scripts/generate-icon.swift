@@ -1,55 +1,48 @@
 import AppKit
+import ImageIO
 
-// Vector master: conversation lines inside a returning memory trace.
+// Preserve the approved artwork; only resample it into macOS's required sizes.
+// Usage from the repository root: swift Scripts/generate-icon.swift Assets
 let destination = URL(fileURLWithPath: CommandLine.arguments.dropFirst().first ?? "Assets")
+let sourceURL = destination.appendingPathComponent("IconSource/Recall.png")
 let iconset = destination.appendingPathComponent("Recall.iconset")
 let catalog = destination.appendingPathComponent("Assets.xcassets/AppIcon.appiconset")
+guard let source = CGImageSourceCreateWithURL(sourceURL as CFURL, nil),
+      let artwork = CGImageSourceCreateImageAtIndex(source, 0, nil),
+      artwork.width == artwork.height, artwork.width >= 1024 else {
+    fatalError("The approved source must be a square PNG at least 1024 pixels wide: \(sourceURL.path)")
+}
 try FileManager.default.createDirectory(at: iconset, withIntermediateDirectories: true)
 try FileManager.default.createDirectory(at: catalog, withIntermediateDirectories: true)
 
-func render(_ size: Int) -> Data {
-    let rep = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: size, pixelsHigh: size,
-        bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
-        colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0)!
-    NSGraphicsContext.saveGraphicsState()
-    let context = NSGraphicsContext(bitmapImageRep: rep)!
-    NSGraphicsContext.current = context
-    context.cgContext.scaleBy(x: CGFloat(size) / 1024, y: CGFloat(size) / 1024)
-    NSColor(calibratedRed: 0.16, green: 0.32, blue: 0.34, alpha: 1).setFill()
-    NSBezierPath(roundedRect: NSRect(x: 72, y: 72, width: 880, height: 880), xRadius: 195, yRadius: 195).fill()
-    NSColor(calibratedRed: 0.93, green: 0.96, blue: 0.91, alpha: 1).setStroke()
-    let path = NSBezierPath()
-    path.lineWidth = 47
-    path.lineCapStyle = .round
-    path.lineJoinStyle = .round
-    path.move(to: NSPoint(x: 675, y: 749))
-    path.curve(to: NSPoint(x: 252, y: 508), controlPoint1: NSPoint(x: 434, y: 907), controlPoint2: NSPoint(x: 195, y: 754))
-    path.curve(to: NSPoint(x: 712, y: 303), controlPoint1: NSPoint(x: 252, y: 242), controlPoint2: NSPoint(x: 510, y: 119))
-    path.curve(to: NSPoint(x: 782, y: 514), controlPoint1: NSPoint(x: 784, y: 376), controlPoint2: NSPoint(x: 805, y: 445))
-    path.move(to: NSPoint(x: 565, y: 749)); path.line(to: NSPoint(x: 675, y: 749)); path.line(to: NSPoint(x: 675, y: 859))
-    path.stroke()
-    let lines = NSBezierPath()
-    lines.lineWidth = 39
-    lines.lineCapStyle = .round
-    for (y, end) in [(602.0, 594.0), (511, 641), (420, 545)] {
-        lines.move(to: NSPoint(x: 402, y: y)); lines.line(to: NSPoint(x: end, y: y))
+func render(_ size: Int) throws -> Data {
+    guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
+          let context = CGContext(data: nil, width: size, height: size,
+            bitsPerComponent: 8, bytesPerRow: 0, space: colorSpace,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else {
+        throw NSError(domain: "RecallIcon", code: 1, userInfo: [NSLocalizedDescriptionKey: "Cannot create icon bitmap."])
     }
-    lines.stroke()
-    NSGraphicsContext.restoreGraphicsState()
-    return rep.representation(using: .png, properties: [:])!
+    context.interpolationQuality = .high
+    context.draw(artwork, in: CGRect(x: 0, y: 0, width: size, height: size))
+    guard let image = context.makeImage(),
+          let data = NSBitmapImageRep(cgImage: image).representation(using: .png, properties: [:]) else {
+        throw NSError(domain: "RecallIcon", code: 2, userInfo: [NSLocalizedDescriptionKey: "Cannot encode icon PNG."])
+    }
+    return data
 }
 
 var images: [[String: String]] = []
 for points in [16, 32, 128, 256, 512] {
     for scale in [1, 2] {
         let filename = "icon_\(points)x\(points)\(scale == 2 ? "@2x" : "").png"
-        let data = render(points * scale)
-        try data.write(to: iconset.appendingPathComponent(filename))
-        try data.write(to: catalog.appendingPathComponent(filename))
+        let data = try render(points * scale)
+        try data.write(to: iconset.appendingPathComponent(filename), options: .atomic)
+        try data.write(to: catalog.appendingPathComponent(filename), options: .atomic)
         images.append(["filename": filename, "idiom": "mac", "scale": "\(scale)x", "size": "\(points)x\(points)"])
     }
 }
 let contents: [String: Any] = ["images": images, "info": ["author": "xcode", "version": 1]]
 try JSONSerialization.data(withJSONObject: contents, options: [.prettyPrinted, .sortedKeys])
-    .write(to: catalog.appendingPathComponent("Contents.json"))
-try render(1024).write(to: destination.appendingPathComponent("Recall-1024.png"))
+    .write(to: catalog.appendingPathComponent("Contents.json"), options: .atomic)
+try render(1024).write(to: destination.appendingPathComponent("Recall-1024.png"), options: .atomic)
+print("Generated all ten macOS icon variants and the 1024 px master from the approved artwork.")

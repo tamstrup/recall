@@ -46,3 +46,7 @@ The drop provider and import pipeline are automated and verified. An actual mous
 Debug and optimized release builds use `Scripts/build-app.sh`; the app is locally signed and has a complete `.icns` icon. App source compiles without warnings. Apple's Swift build driver emits harmless missing search-directory warnings for two Xcode-style paths absent from this Command Line Tools installation. The script selects the compatible installed SDK and explicitly supplies the Testing macro plugin path.
 
 This is a functional MVP, not a benchmark of diarization accuracy or a guarantee of LLM factual completeness. No physical recorder or user-provided audio was available. Very long recordings and all supported macOS versions have not been exhaustively tested.
+
+## Approved icon update
+
+Replaced the original teal mark with the user-approved purple voice-to-text artwork. Verified all ten catalog/iconset PNG entries have their required pixel dimensions and RGBA transparency, and that the saved original matches the approved generated image byte for byte. Inspected the 128 px icon and refreshed the native Inbox screenshot. Rebuilt debug and release bundles and reran the 12 core tests successfully; the three opt-in decoder/model tests were skipped for this asset-only update (their earlier passing evidence is above).

@@ -1,0 +1,13 @@
+Recall local model attribution
+
+WhisperKit Core ML models, by Argmax, based on OpenAI Whisper — MIT.
+https://huggingface.co/argmaxinc/whisperkit-coreml
+https://github.com/openai/whisper
+
+SpeakerKit Core ML models, by Argmax, based on Pyannote — CC BY 4.0.
+https://huggingface.co/argmaxinc/speakerkit-coreml
+https://creativecommons.org/licenses/by/4.0/
+Recall downloads these models unmodified. No affiliation or endorsement is implied.
+
+Apple Foundation Models are provided by macOS under Apple's applicable terms;
+Recall does not redistribute Apple's model weights.

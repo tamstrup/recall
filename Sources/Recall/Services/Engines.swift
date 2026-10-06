@@ -1,6 +1,6 @@
 import Foundation
 
-typealias EngineProgress = @Sendable (String) async -> Void
+typealias EngineProgress = @Sendable (ProcessingProgress) async -> Void
 
 protocol TranscriptionEngine: Sendable {
     func transcribe(_ audio: URL, progress: @escaping EngineProgress) async throws -> [TranscriptSegment]

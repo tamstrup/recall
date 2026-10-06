@@ -30,11 +30,16 @@ struct RecordingDetail: View {
                 }.font(.callout).padding(.horizontal, 32).padding(.bottom, 20)
             }
             if recording.status.isProcessing || recording.status == .queued {
-                HStack(spacing: 9) {
-                    ProgressView().controlSize(.small)
-                    Text(recording.processingMessage ?? recording.status.label).font(.callout).foregroundStyle(.secondary)
-                    Spacer()
-                }.padding(.horizontal, 32).padding(.bottom, 18)
+                if let progress = recording.processingProgress {
+                    ProcessingProgressView(progress: progress)
+                        .padding(.horizontal, 32).padding(.bottom, 18)
+                } else {
+                    HStack(spacing: 9) {
+                        ProgressView().controlSize(.small)
+                        Text(recording.processingMessage ?? recording.status.label).font(.callout).foregroundStyle(.secondary)
+                        Spacer()
+                    }.padding(.horizontal, 32).padding(.bottom, 18)
+                }
             }
             HStack {
                 Picker("View", selection: $tab) {

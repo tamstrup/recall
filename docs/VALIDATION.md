@@ -54,3 +54,15 @@ Replaced the original teal mark with the user-approved purple voice-to-text artw
 ## Header alignment fix (0.1.1)
 
 Reproduced the titlebar separator extending into the sidebar: the native titlebar background began at x=278 while the detail column began at x=281. Hid the automatic toolbar material so each split column supplies its own aligned background, and configured the public `NSWindow.titlebarSeparatorStyle` to `.none` to remove the overhanging line. The native title and toolbar controls remain, without fixed padding or private-view changes. The preview helper now captures the complete window so titlebar regressions remain visible. Inspected the empty Inbox in light mode and a recording in dark mode at the minimum window size. Debug/release builds and local signing verification passed. The transfer ZIP was refreshed for this patch.
+
+## Model download progress (0.1.2)
+
+Download callbacks now drive a progress bar, percentage across files, completed file count, optional transfer speed, and elapsed time. Preparation has a separate message and elapsed timer. Argmax 1.1.0's Hub snapshot progress weights files equally; it does not expose aggregate bytes or a reliable ETA. Short downloads may not produce any speed sample. The UI does not invent these values.
+
+Verified first-run downloads in a separate, empty `.build/progress-test-models` cache: Whisper reported 82 progress updates across 17 files; SpeakerKit reported 27 across 23 files. Both reported partial progress and reached 100% before inference. The real recording produced five transcript segments and two speakers. The final suite passed all 16 regular tests plus the real speech pipeline and audio-format import tests; the unrelated opt-in Apple summary test was skipped. The cached speech pipeline took about seven seconds.
+
+New checks cover partial-file percentages, immutable callback snapshots, unknown totals, invalid/absent speed, and draining progress updates before success or failure so late callbacks cannot overwrite a newer stage. A disk-backed recovery test confirms that reopening interrupted speaker detection retains the saved transcript, skips retranscription, and discards stale progress. Progress details remain transient and require no library migration.
+
+Inspected native download and preparation panels in light/dark mode at the minimum window size. Bounded multiline labels prevent SwiftUI's split-view minimum-size measurement from expanding the content beyond the window. The captures in `docs/screenshots/model-download.png` and `model-preparation-dark.png` use synthetic progress and an isolated preview library.
+
+Built the optimized ARM64 app as version 0.1.2 (build 3), verified its local code signature, and validated `build/Recall-0.1.2-macOS-arm64.zip` with `unzip -t`. The unversioned transfer ZIP contains the same release. Model weights remain separate and download on each Mac's first use.

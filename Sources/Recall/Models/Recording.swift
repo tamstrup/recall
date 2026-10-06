@@ -70,6 +70,7 @@ struct GeneratedSummary: Codable, Identifiable, Sendable {
     var duration: Double
     var statusRaw: String
     var processingMessage: String?
+    var processingProgress: ProcessingProgress?
     var failureMessage: String?
     var segments: [TranscriptSegment]
     var speakers: [Speaker]

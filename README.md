@@ -23,11 +23,11 @@ Drop one or more files anywhere in the window, or use **⌘O**. WAV, M4A, MP3, a
 
 The queue transcribes and identifies speakers one recording at a time. Open a recording to play/pause or scrub. Click transcript text or a timestamp to seek, and click a speaker's name to rename them throughout that recording. In **Notes**, choose Summary, Meeting Minutes, Decisions, Action Items, or Clean Notes, then Generate. Transcript and notes can be copied.
 
-Failed speaker detection preserves the transcript. Retry resumes the missing stage. Interrupted work resumes at launch. Failed summary regeneration preserves the previous result.
+Failed speaker detection preserves the transcript. Retry resumes the missing stage. Quitting stops processing; reopening automatically retries unfinished recordings. An interrupted transcription restarts from the beginning because partial transcripts are not saved. If transcription finished and was saved, recovery starts with speaker detection. Imported audio and completed results remain in the library. Failed summary regeneration preserves the previous result.
 
 ## Models and storage
 
-First import automatically downloads Whisper `large-v3-v20240930_626MB` and SpeakerKit's default Pyannote models from Hugging Face. Allow several GB of free space for downloads, compiled models, and audio. Initial preparation can take several minutes. No Hugging Face account or API key is required. Subsequent processing uses local models. Foundation Models is supplied and downloaded by macOS itself.
+First import automatically downloads Whisper `large-v3-v20240930_626MB` and SpeakerKit's default Pyannote models from Hugging Face. Each download shows a progress bar, percentage across model files, completed file count, download speed when available, and elapsed time. The SDK weights files equally, so this is file progress, not a byte percentage or time estimate. Model preparation is a separate stage with elapsed time; it can take several minutes on first use. Allow several GB of free space for downloads, compiled models, and audio. No Hugging Face account or API key is required. Subsequent processing uses local models. Foundation Models is supplied and downloaded by macOS itself.
 
 Library: `~/Library/Application Support/Recall/`
 

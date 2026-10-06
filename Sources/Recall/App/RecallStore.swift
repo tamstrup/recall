@@ -34,6 +34,7 @@ import UniformTypeIdentifiers
             for recording in recordings where recording.status.isProcessing {
                 recording.status = .queued
                 recording.processingMessage = nil
+                recording.processingProgress = nil
             }
             try persistence.save(recordings)
             startQueue()
@@ -137,20 +138,23 @@ import UniformTypeIdentifiers
             recording.status = .ready
             recording.failureMessage = nil
             recording.processingMessage = nil
+            recording.processingProgress = nil
             try persistence.save(recordings)
             logger.info("Recording processing completed")
         } catch {
             logger.error("Recording stage failed: \(error.localizedDescription, privacy: .private)")
             recording.status = .failed
             recording.processingMessage = nil
+            recording.processingProgress = nil
             recording.failureMessage = error.localizedDescription
             save()
         }
     }
 
-    private func setProgress(_ id: UUID, message: String) {
+    private func setProgress(_ id: UUID, message: ProcessingProgress) {
         if let recording = recordings.first(where: { $0.id == id }) {
-            recording.processingMessage = message
+            recording.processingMessage = message.message
+            recording.processingProgress = message
         }
     }
 

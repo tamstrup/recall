@@ -41,8 +41,21 @@ import AVFoundation
         store.selectedID = store.recordings.first?.id
         return store
     }
-    static func capture() async {
+    static func capture(store: RecallStore) async {
         guard let output else { return }
+        if let mode = ProcessInfo.processInfo.environment["RECALL_PROGRESS_UI"], let item = store.recordings.first {
+            item.status = .transcribing
+            item.segments = []
+            item.speakers = []
+            let sample = Progress(totalUnitCount: 10)
+            sample.completedUnitCount = 6
+            sample.setUserInfoObject(4_200_000.0, forKey: .throughputKey)
+            item.processingProgress = mode == "preparing"
+                ? ProcessingProgress(message: "Preparing transcription model for this Mac", startedAt: Date().addingTimeInterval(-92),
+                    detail: "First-time preparation can take several minutes. Transcription starts automatically.")
+                : ProcessingProgress(message: "Downloading transcription model · 1 of 2", startedAt: Date().addingTimeInterval(-24),
+                    download: DownloadProgress(sample), detail: "Models download once and stay on this Mac.")
+        }
         try? await Task.sleep(for: .seconds(2))
         guard let window = NSApplication.shared.windows.first(where: { $0.isVisible }),
               let view = window.contentView?.superview else { return }

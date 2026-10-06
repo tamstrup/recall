@@ -1,4 +1,5 @@
 import Foundation
+import ArgmaxCore
 import WhisperKit
 import SpeakerKit
 
@@ -13,12 +14,19 @@ actor WhisperTranscriptionEngine: TranscriptionEngine {
         guard try AudioSignal.hasAudibleSamples(audio) else {
             throw RecallError(message: "This recording is silent. You can still play it, but there is no audible speech to transcribe.")
         }
-        await progress("Preparing transcription model · first use downloads the model")
         let receipt = models.appendingPathComponent("recall-whisper-\(modelName).json")
         let cachedFolder = (try? Data(contentsOf: receipt)).flatMap { try? JSONDecoder().decode(String.self, from: $0) }
-        let localFolder = cachedFolder.flatMap { FileManager.default.fileExists(atPath: $0) ? $0 : nil }
+        var localFolder = cachedFolder.flatMap { FileManager.default.fileExists(atPath: $0) ? $0 : nil }
+        if localFolder == nil {
+            let folder = try await withModelDownloadProgress(message: "Downloading transcription model · 1 of 2", progress: progress) { callback in
+                try await WhisperKit.download(variant: modelName, downloadBase: models, progressCallback: callback)
+            }
+            localFolder = folder.path
+        }
+        await progress(ProcessingProgress(message: "Preparing transcription model for this Mac",
+            detail: "First-time preparation can take several minutes. Transcription starts automatically."))
         let kit = try await WhisperKit(WhisperKitConfig(model: modelName, downloadBase: models,
-            modelFolder: localFolder, verbose: false, prewarm: true, load: true, download: localFolder == nil))
+            modelFolder: localFolder, verbose: false, prewarm: true, load: true, download: false))
         do {
             await progress("Transcribing on your Mac")
             let results = try await kit.transcribe(
@@ -52,9 +60,15 @@ actor SpeakerDiarizationEngine: DiarizationEngine {
     let models: URL
     init(models: URL) { self.models = models }
     func identifySpeakers(_ audio: URL, progress: @escaping EngineProgress) async throws -> [SpeakerTurn] {
-        await progress("Preparing speaker models · first use downloads the models")
-        let kit = try await SpeakerKit(PyannoteConfig(downloadBase: models.path, verbose: false))
+        let diarizer = SpeakerKitDiarizer.pyannote(config: PyannoteConfig(downloadBase: models.path, verbose: false))
+        let kit = try await SpeakerKit(PyannoteConfig(download: false, verbose: false, diarizer: diarizer))
         do {
+            try await withModelDownloadProgress(message: "Downloading speaker models · 2 of 2", progress: progress) { callback in
+                try await (diarizer as ModelManager).downloadModels(progressCallback: callback)
+            }
+            await progress(ProcessingProgress(message: "Preparing speaker models for this Mac",
+                detail: "First-time preparation can take several minutes. Speaker detection starts automatically."))
+            try await diarizer.loadModels()
             await progress("Listening for different speakers on your Mac")
             let samples = try AudioProcessor.loadAudioAsFloatArray(fromPath: audio.path)
             let result = try await kit.diarize(audioArray: samples)

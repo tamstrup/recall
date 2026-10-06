@@ -86,6 +86,32 @@ struct StubSummarizer: SummaryEngine {
         #expect(item.status == .ready)
     }
 
+    @Test func interruptedSpeakerDetectionReopensFromDiskWithoutRetranscribing() async throws {
+        let folder = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: folder) }
+        let url = folder.appendingPathComponent("recovery.sqlite")
+        let item = recording()
+        item.status = .identifyingSpeakers
+        item.segments = [TranscriptSegment(start: 0, end: 2, text: "Saved before quitting")]
+        item.processingProgress = "Old progress"
+        do {
+            let persistence = try RecordingPersistence(url: url)
+            try persistence.save([item])
+        }
+        let reopened = try RecordingPersistence(url: url)
+        let loaded = try #require(reopened.recordings.first)
+        #expect(loaded.processingProgress == nil)
+        let store = RecallStore(persistence: reopened, library: AudioLibrary(root: folder),
+            transcriber: StubTranscriber(fails: true), diarizer: StubDiarizer(), summarizer: StubSummarizer())
+        store.recoverQueue()
+        try await awaitCompletion(loaded)
+        #expect(loaded.status == .ready)
+        #expect(loaded.segments.first?.text == "Saved before quitting")
+        #expect(loaded.diarizationComplete)
+        #expect(loaded.processingProgress == nil)
+    }
+
     @Test func renameUpdatesEveryOccurrenceAndSummaryInput() throws {
         let item = recording()
         item.speakers = [Speaker(id: 0, name: "Speaker 1")]
@@ -239,10 +265,24 @@ struct StubSummarizer: SummaryEngine {
         let models = URL(fileURLWithPath: try #require(env["RECALL_TEST_MODELS"]))
         let transcriber = WhisperTranscriptionEngine(models: models,
             modelName: env["RECALL_TEST_MODEL"] ?? "large-v3-v20240930_626MB")
-        let segments = try await transcriber.transcribe(audio) { print("INFERENCE: \($0)") }
+        let transcriptionProgress = ProgressRecorder()
+        let segments = try await transcriber.transcribe(audio) { await transcriptionProgress.append($0) }
         #expect(!segments.isEmpty)
         #expect(segments.map(\.text).joined().lowercased().contains("friday"))
-        let turns = try await SpeakerDiarizationEngine(models: models).identifySpeakers(audio) { print("INFERENCE: \($0)") }
+        let speakerProgress = ProgressRecorder()
+        let turns = try await SpeakerDiarizationEngine(models: models).identifySpeakers(audio) { await speakerProgress.append($0) }
+        if env["RECALL_REQUIRE_DOWNLOAD_PROGRESS"] == "1" {
+            for recorder in [transcriptionProgress, speakerProgress] {
+                let values = await recorder.values
+                let downloads = values.compactMap(\.download)
+                #expect(downloads.contains { $0.fraction > 0 && $0.fraction < 1 })
+                #expect(downloads.last?.percent == 100)
+                // Short files can complete before the SDK produces a speed sample.
+                #expect(downloads.compactMap(\.bytesPerSecond).allSatisfy { $0 > 0 && $0.isFinite })
+                #expect(values.last?.download == nil)
+                print("DOWNLOAD VERIFIED: \(downloads.count) updates, \(downloads.last?.totalFiles ?? 0) files, finished at 100% before inference")
+            }
+        }
         #expect(!turns.isEmpty)
         let aligned = SpeakerAlignment.align(segments, turns: turns)
         #expect(!aligned.compactMap(\.speakerID).isEmpty)

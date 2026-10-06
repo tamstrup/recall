@@ -40,7 +40,7 @@ import AppKit
                     .task {
                         store.recoverQueue()
                         #if DEBUG
-                        await PreviewCapture.capture()
+                        await PreviewCapture.capture(store: store)
                         #endif
                     }
                     .onOpenURL { url in Task { await store.importFiles([url]) } }
